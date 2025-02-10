@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 export default function PaymentSuccess({
-  searchParams,
+  searchParams: { amount  },
 }: {
-  searchParams: { amount?: string }; // Make amount optional to prevent runtime errors
+  searchParams: { amount: string;  };
 }) {
   return (
     <main className="max-w-6xl mx-auto p-10 text-white text-center border m-10 rounded-md bg-gradient-to-tr from-blue-500 to-purple-500">
@@ -12,11 +12,11 @@ export default function PaymentSuccess({
         <h2 className="text-2xl">You successfully sent</h2>
 
         <div className="bg-white p-2 rounded-md text-purple-500 mt-5 text-4xl font-bold">
-          ${searchParams.amount ?? "0"} {/* Provide a default value */}
+          ${amount}
         </div>
 
         <div className="mt-10">
-          <Link href="/shop" className="text-blue-200 hover:text-blue-100 underline">
+          <Link href="/Shop" className="text-blue-200 hover:text-blue-100 underline">
             Go back to shopping
           </Link>
         </div>

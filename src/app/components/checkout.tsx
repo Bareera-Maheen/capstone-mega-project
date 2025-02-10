@@ -3,98 +3,76 @@
 import React, { useEffect, useState } from "react";
 import { useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js";
 
-interface CheckoutProps {
-  amount?: number;
-}
-
-const CheckoutPage: React.FC<CheckoutProps> = ({ amount = 0 }) => {
+const CheckoutPage = ({ amount }: { amount: number }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>();
+  const [clientSecret, setClientSecret] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (amount <= 0) return; // Prevent unnecessary API calls
-
-    const createPaymentIntent = async () => {
-      try {
-        const response = await fetch("/api/create-payment-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: amount * 100 }), // Convert to cents
-        });
-
-        if (!response.ok) throw new Error("Failed to create payment intent");
-
-        const data = await response.json();
-        setClientSecret(data.clientSecret);
-      } catch (error) {
-        console.error("Error creating payment intent:", error);
-        setErrorMessage("Failed to initialize payment. Please try again.");
-      }
-    };
-
-    createPaymentIntent();
+    fetch("/api/create-payment-intent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ amount: amount * 100 }), // Convert to cents
+    })
+      .then((res) => res.json())
+      .then((data) => setClientSecret(data.clientSecret));
   }, [amount]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoading(true);
 
     if (!stripe || !elements) {
-      setErrorMessage("Stripe has not loaded yet. Please try again.");
       return;
     }
 
-    setLoading(true);
+    const { error: submitError } = await elements.submit();
 
-    try {
-      const { error: submitError } = await elements.submit();
-      if (submitError) throw new Error(submitError.message);
+    if (submitError) {
+      setErrorMessage(submitError.message);
+      setLoading(false);
+      return;
+    }
 
-      if (!clientSecret) throw new Error("Payment information is missing.");
+    const { error } = await stripe.confirmPayment({
+      elements,
+      clientSecret,
+      confirmParams: {
+        return_url: `https://final-hackathon-quarter-2-psnw.vercel.app/checkout/payment/paymentsuccess?amount=${amount}`,
+      },
+    });
 
-      const { error } = await stripe.confirmPayment({
-        elements,
-        clientSecret,
-        confirmParams: {
-          return_url: `http://localhost:3000/checkout/payment/paymentsuccess?amount=${encodeURIComponent(
-            amount.toFixed(2)
-          )}`,
-        },
-      });
-
-      if (error) throw new Error(error.message);
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage("Payment failed. Please try again.");
-      }
+    if (error) {
+      setErrorMessage(error.message);
     }
 
     setLoading(false);
   };
 
-  if (!stripe || !elements) return <div>Loading Stripe...</div>;
-
-  if (!clientSecret)
+  if (!clientSecret || !stripe || !elements) {
     return (
       <div className="flex items-center justify-center">
         <div
-          className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent text-surface dark:text-white"
+          className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-surface motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white"
           role="status"
         >
-          <span className="sr-only">Loading...</span>
+          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
+            Loading...
+          </span>
         </div>
       </div>
     );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-2 rounded-md">
-      <PaymentElement />
+      {clientSecret && <PaymentElement />}
 
-      {errorMessage && <div className="text-red-500 text-center mt-4">{errorMessage}</div>}
+      {errorMessage && <div>{errorMessage}</div>}
 
       <button
         disabled={!stripe || loading}
