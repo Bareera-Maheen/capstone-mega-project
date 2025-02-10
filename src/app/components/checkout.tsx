@@ -6,11 +6,13 @@ import { useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js"
 const CheckoutPage = ({ amount = 0 }: { amount: number }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const [errorMessage, setErrorMessage] = useState<string>();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (amount <= 0) return; // Prevent unnecessary API calls
+
     fetch("/api/create-payment-intent", {
       method: "POST",
       headers: {
@@ -33,30 +35,35 @@ const CheckoutPage = ({ amount = 0 }: { amount: number }) => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setLoading(true);
 
     if (!stripe || !elements) {
+      setErrorMessage("Stripe has not loaded yet. Please try again.");
       return;
     }
 
-    const { error: submitError } = await elements.submit();
+    setLoading(true);
 
-    if (submitError) {
-      setErrorMessage(submitError.message);
-      setLoading(false);
-      return;
-    }
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        throw new Error(submitError.message);
+      }
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      clientSecret,
-      confirmParams: {
-        return_url: `https://final-hackathon-quarter-2-psnw.vercel.app/checkout/payment/paymentsuccess?amount=${amount}`,
-      },
-    });
+      const { error } = await stripe.confirmPayment({
+        elements,
+        clientSecret,
+        confirmParams: {
+          return_url: `http://localhost:3000/checkout/payment/paymentsuccess?amount=${encodeURIComponent(
+            amount.toFixed(2)
+          )}`,
+        },
+      });
 
-    if (error) {
-      setErrorMessage(error.message);
+      if (error) {
+        throw new Error(error.message);
+      }
+    } catch (error: any) {
+      setErrorMessage(error.message || "Payment failed. Please try again.");
     }
 
     setLoading(false);
@@ -70,7 +77,7 @@ const CheckoutPage = ({ amount = 0 }: { amount: number }) => {
     return (
       <div className="flex items-center justify-center">
         <div
-          className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-surface motion-reduce:animate-[spin_1.5s_linear_infinite] dark:text-white"
+          className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent text-surface dark:text-white"
           role="status"
         >
           <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
@@ -100,3 +107,4 @@ const CheckoutPage = ({ amount = 0 }: { amount: number }) => {
 };
 
 export default CheckoutPage;
+g

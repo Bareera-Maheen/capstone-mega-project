@@ -1,10 +1,12 @@
 "use client";
 
+
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { useEffect, useState } from "react";
 import { useCart } from "@/app/components/cartContext"; // Import your cart context
-import CheckoutPage from "@/app/components/checkout";
+import CheckoutPage from "@/app/components/checkout"
+
 
 // Load Stripe
 if (!process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY) {
@@ -18,34 +20,13 @@ export default function Payment() {
 
   // Calculate cart total dynamically
   useEffect(() => {
-    if (cart && cart.length > 0) {
-      const totalAmount = cart.reduce(
-        (total, item) =>
-          total + (item.price - (item.price * item.discountPercentage) / 100) * item.quantity,
-        0
-      );
-      setCartTotal(totalAmount);
-    } else {
-      setCartTotal(0); // Set total to 0 if cart is empty
-    }
-  }, [cart]);
-
-  // Check for Stripe initialization
-  if (!stripePromise) {
-    return <div>Loading Stripe...</div>;
-  }
-
-  // Display a message if the cart is empty
-  if (cart.length === 0) {
-    return (
-      <main className="max-w-6xl mx-auto p-10 text-white text-center border m-10 rounded-md bg-gradient-to-tr from-blue-500 to-purple-500">
-        <div className="mb-10">
-          <h1 className="text-4xl font-extrabold mb-2">Your cart is empty</h1>
-          <p className="text-2xl">Add items to your cart to proceed to checkout.</p>
-        </div>
-      </main>
+    const totalAmount = cart.reduce(
+      (total, item) =>
+        total + (item.price - (item.price * item.discountPercentage) / 100) * item.quantity,
+      0
     );
-  }
+    setCartTotal(totalAmount);
+  }, [cart]);
 
   return (
     <main className="max-w-6xl mx-auto p-10 text-white text-center border m-10 rounded-md bg-gradient-to-tr from-blue-500 to-purple-500">
@@ -57,7 +38,14 @@ export default function Payment() {
       </div>
 
       {cartTotal > 0 && (
-        <Elements stripe={stripePromise}>
+        <Elements
+          stripe={stripePromise}
+          options={{
+            mode: "payment",
+            amount: Math.round(cartTotal * 100), // Convert to cents for Stripe
+            currency: "usd",
+          }}
+        >
           <CheckoutPage amount={cartTotal} />
         </Elements>
       )}
